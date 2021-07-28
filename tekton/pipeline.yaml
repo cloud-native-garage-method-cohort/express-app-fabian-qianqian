@@ -1,0 +1,49 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: express-app-pipeline
+spec:
+  params:
+    - name: image-repo
+      type: string
+      description: Docker image name
+    - name: app-name
+      type: string
+      description: the name of the app
+  workspaces:
+  - name: pipeline-shared-data
+  tasks:
+  - name: clone-repository
+    taskRef:
+      kind: ClusterTask
+      name: git-clone
+    workspaces:
+    - name: output
+      workspace: pipeline-shared-data
+    params:
+    - name: url
+      value: https://github.com/cloud-native-garage-method-cohort/express-app-fabian-qianqian.git
+  - name: run-tests
+    taskRef:
+      name: npm
+    workspaces:
+    - name: source
+      workspace: pipeline-shared-data
+    params:
+    - name: ARGS
+      value:
+      - install-ci-test
+    runAfter:
+    - clone-repository
+  - name: build-image
+    taskRef:
+      kind: ClusterTask
+      name: buildah
+    runAfter:
+      - run-tests
+    params:
+      - name: IMAGE
+        value: "quay.io/qqye/express-app-fabian-qianqian:$(tasks.clone-repository.results.commit)"
+    workspaces:
+      - name: source
+        workspace: pipeline-shared-data
